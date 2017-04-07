@@ -7,11 +7,11 @@ const Request = require("request");
 const Path = require("path");
 const Stream = require('stream');
 const RapidAPI = new require('rapidapi-connect');
-const rapid = new RapidAPI('SmashTese', 'cd13f531-025d-4e0b-b77b-1acbc5620100');
+const rapid = new RapidAPI('SmashTese', 'KEY DE RAPIDAPI');
 let open = require('open');
 const config = {
-FACE_API_KEY: "335211c3e03d4b5b8b4df79dca4b02b7 ",
-FACE_API_ENDPOINT: "https://westus.api.cognitive.microsoft.com/emotion/v1.0/recognize"
+EMOTION_API_KEY: "KEY DE EMOTION API",
+EMOTION_API_ENDPOINT: "https://westus.api.cognitive.microsoft.com/emotion/v1.0/recognize"
 }
 //2.Instanciamos nuestro objeto server
 const server = new Hapi.Server();
@@ -56,7 +56,7 @@ var binaryBuffer = new Buffer(base64Buffer.toString("binary"), "binary");
 //generamos el request al api
 var req = Request(
                 {
-                    url: config.FACE_API_ENDPOINT,//url de la api
+                    url: config.EMOTION_API_ENDPOINT,//url de la api
                     method: 'POST',
                     headers: {                        
 //formato de envío de la imagen al api
@@ -64,7 +64,7 @@ var req = Request(
 //tamaño del buffer
 'Content-Length': binaryBuffer.length,
 //suscription API KEY
-'Ocp-Apim-Subscription-Key': config.FACE_API_KEY,
+'Ocp-Apim-Subscription-Key': config.EMOTION_API_KEY,
                     }
                 }, function (error, response, body) {
 if (error) 
