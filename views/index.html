@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Emotion API</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css"  rel="stylesheet"/>    
+    <style>
+        
+    </style>
+</head>
+<body>
+    <div class="panel panel-default">
+        <div class="panel-body text-center">
+            <h1>Detección de Emociones</h1>    
+            <br />
+            <br />
+            <canvas id="c" class="center-block" width="600" height="400" style="background-color:#d9dfd7"></canvas>
+            <br />
+            <input id="file" class="center-block" type="file" name="file"><br />
+            <div class="btn-group">
+                <button type="button" action="faces" class="btn btn-primary">Detectar Rostro y Emociones</button>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="panel-body">
+            <div class="panel-heading">Respuesta EmotionAPI</div>
+            <div class="panel-body" style="padding:20px;">
+                <pre id="txtCode"> </pre>
+            </div>
+        </div>
+    </div>
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" type="text/javascript"></script>
+    
+    <script type="text/javascript">
+        var canvas = document.getElementById("c");
+        var ctx = canvas.getContext("2d");
+        var preferedSize = { w: 800, h: 600};
+        //calcular la distancia entre 2 puntos
+        function getDistanceBetwen2Points(x1, y1, x2, y2) {
+            var a = x1 - x2
+            var b = y1 - y2
+            var c = Math.sqrt(a * a + b * b);
+            return c;
+        }
+        //evalua el angulo entre 2 puntos, esta funcion es util para obtener 
+        //la orientaci'on de cada uno de los rostros y ubicar los accesories 
+        //en la posici'on correcta
+        function calcularAngleBetwen2Points(pt1, pt2) {
+            var deltaY = pt2.y - pt1.y;
+            var deltaX = pt2.x - pt1.x;
+            var angle = Math.atan2(deltaY, deltaX);
+            return angle;
+        }
+        //dibujar un punto
+        function drawPoint(x, y, ctx) {
+            ctx.beginPath(); ctx.arc(x, y, 2, 0, 2 * Math.PI, true); ctx.fill();
+        }
+        function drawLine(x1, y1, x2, y2, ctx) {
+            ctx.strokeStyle = '#DF0174';
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+        function drawPolygon(poly, ctx) {
+            ctx.fillStyle = '#DF0174';
+            ctx.beginPath();
+            ctx.moveTo(poly[0], poly[1]);
+            for (var item = 2 ; item < poly.length - 1 ; item += 2) {
+                ctx.lineTo(poly[item], poly[item + 1])
+            }
+            ctx.closePath();
+            ctx.globalAlpha = 0.8;
+            ctx.fill();
+        }
+        //encierra con un rectangulo cada rostro detectado
+        function drawFace(face) {
+            var rec = face.faceRectangle;
+            ctx.fillStyle = '#DF0174';
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(rec.left, rec.top, rec.width, rec.height);
+            ctx.globalAlpha = 1;
+            drawPoint(rec.left, rec.top, ctx);
+            drawPoint(rec.left + rec.width, rec.top, ctx);
+            drawPoint(rec.left, rec.top + rec.height, ctx);
+            drawPoint(rec.left + rec.width, rec.top + rec.height, ctx);
+            ctx.strokeStyle = 'red';
+            ctx.fillStyle = '#DF0174';
+            ctx.font = "20px Arial";
+            ctx.stroke();             
+        }
+        //este me'todo obtiene la posici'on de cada rostro y algunos puntos de interes
+        //y sobrepone sobre cada uno (en la imagen), las gafas, el cigarro y la gorra, aprovechando 
+        //las bondades de html5 (se puede mejorar)
+        function drawFun(face) {
+            var faceRectangle = face.faceRectangle;
+            var faceLandmarks = face.faceLandmarks;
+            //ctx.fillStyle = '#DF0174';
+            //drawPoint(faceLandmarks.pupilLeft.x, faceLandmarks.pupilLeft.y, ctx);
+            //drawPoint(faceLandmarks.pupilRight.x, faceLandmarks.pupilRight.y, ctx);
+            //drawPoint(faceLandmarks.eyebrowLeftOuter.x, faceLandmarks.eyebrowLeftOuter.y, ctx);
+            //drawPoint(faceLandmarks.eyebrowRightOuter.x, faceLandmarks.eyebrowRightOuter.y, ctx);
+            var pt1 = { x: faceLandmarks.eyebrowLeftOuter.x, y: faceLandmarks.eyebrowLeftOuter.y };
+            var pt2 = { x: faceLandmarks.eyebrowRightOuter.x, y: faceLandmarks.eyebrowRightOuter.y };
+            var d = getDistanceBetwen2Points(pt1.x, pt1.y, pt2.x, pt2.y);
+            var deltaY = pt2.y - pt1.y;
+            var deltaX = pt2.x - pt1.x;
+            var angle = Math.atan2(deltaY, deltaX);
+            //solo si la persona no tiene gafas
+            if (face.faceAttributes.glasses == "NoGlasses") {
+                var glasses = new Image();
+                glasses.src = "public/images/glasses_3.png";
+                glasses.onload = function () {
+                    var aspectRatio = d / this.width;
+                    ctx.save();
+                    ctx.translate(pt1.x, pt1.y);
+                    ctx.rotate(angle);
+                    ctx.translate(-pt1.x, -pt1.y);
+                    ctx.drawImage(this, pt1.x, pt1.y, this.width * aspectRatio, this.height * aspectRatio);
+                    ctx.restore();
+                };
+            }
+            var gorra = new Image();
+            gorra.src = "public/images/gorra.png";
+            gorra.onload = function () {
+                var aspectRatio = (faceRectangle.width) / this.width;
+                ctx.save();
+                ctx.translate(pt1.x, pt1.y);
+                ctx.rotate(angle);
+                ctx.translate(-pt1.x, -pt1.y);
+                ctx.drawImage(this, faceRectangle.left, (faceRectangle.top - faceRectangle.height) + 10, this.width * aspectRatio, this.height * aspectRatio);
+                ctx.restore();
+            };
+            var cigarro = new Image();
+            cigarro.src = "public/images/cigarro.png";
+            cigarro.onload = function () {
+                var pt1 = { x: faceLandmarks.mouthLeft.x, y: faceLandmarks.mouthLeft.y };
+                var pt2 = { x: faceLandmarks.mouthRight.x, y: faceLandmarks.mouthRight.y };
+                var d = getDistanceBetwen2Points(pt1.x, pt1.y, pt2.x, pt2.y);
+                var aspectRatio = d / this.width;
+                ctx.drawImage(this, faceLandmarks.underLipTop.x - d, faceLandmarks.underLipTop.y - 5, d, this.height * aspectRatio);
+            };
+            var logo = new Image();
+            logo.src = "public/images/logo.png";
+            logo.onload = function () {
+                var aspectRatio = 200 / this.width;
+                ctx.drawImage(this, (canvas.width - (this.width * aspectRatio)) - 10, (canvas.height - (this.height * aspectRatio)) - 10, 200, this.height * aspectRatio);
+            };
+        }
+        function drawLandmarks(face) {
+            var faceLandmarks = face.faceLandmarks;
+            //draw eyebrows
+            drawLine(
+                faceLandmarks.eyebrowLeftOuter.x,
+                faceLandmarks.eyebrowLeftOuter.y,
+                faceLandmarks.eyebrowLeftInner.x,
+                faceLandmarks.eyebrowLeftInner.y
+            , ctx);
+            drawLine(
+                faceLandmarks.eyebrowRightOuter.x,
+                faceLandmarks.eyebrowRightOuter.y,
+                faceLandmarks.eyebrowRightInner.x,
+                faceLandmarks.eyebrowRightInner.y
+            , ctx);
+            //draw eyes           
+            drawPolygon([
+                faceLandmarks.eyeLeftOuter.x,
+                faceLandmarks.eyeLeftOuter.y,
+                faceLandmarks.eyeLeftTop.x,
+                faceLandmarks.eyeLeftTop.y,
+                faceLandmarks.eyeLeftInner.x,
+                faceLandmarks.eyeLeftInner.y,
+                faceLandmarks.eyeLeftBottom.x,
+                faceLandmarks.eyeLeftBottom.y
+            ], ctx);
+            drawPolygon([
+                faceLandmarks.eyeRightOuter.x,
+                faceLandmarks.eyeRightOuter.y,
+                faceLandmarks.eyeRightTop.x,
+                faceLandmarks.eyeRightTop.y,
+                faceLandmarks.eyeRightInner.x,
+                faceLandmarks.eyeRightInner.y,
+                faceLandmarks.eyeRightBottom.x,
+                faceLandmarks.eyeRightBottom.y
+            ], ctx);
+            //draw mouth
+            drawPolygon([
+                faceLandmarks.mouthLeft.x,
+                faceLandmarks.mouthLeft.y,
+                faceLandmarks.upperLipTop.x,
+                faceLandmarks.upperLipTop.y,
+                faceLandmarks.mouthRight.x,
+                faceLandmarks.mouthRight.y,
+                faceLandmarks.underLipBottom.x,
+                faceLandmarks.underLipBottom.y
+            ], ctx);
+            //draw Nose
+            drawPolygon([
+               faceLandmarks.noseRootLeft.x,
+               faceLandmarks.noseRootLeft.y,
+               faceLandmarks.noseLeftAlarTop.x,
+               faceLandmarks.noseLeftAlarTop.y,
+               faceLandmarks.noseLeftAlarOutTip.x,
+               faceLandmarks.noseLeftAlarOutTip.y,
+               faceLandmarks.noseTip.x,
+               faceLandmarks.noseTip.y,
+               faceLandmarks.noseRightAlarOutTip.x,
+               faceLandmarks.noseRightAlarOutTip.y,
+               faceLandmarks.noseRightAlarTop.x,
+               faceLandmarks.noseRightAlarTop.y,
+               faceLandmarks.noseRootRight.x,
+               faceLandmarks.noseRootRight.y
+            ], ctx);
+        }
+               
+        //la funcion draw se ejecuta cada vez que hagamos click sobre alguno de los botones
+        //desde la interfaz
+        function draw(apiResponse,action) {
+            var faces = JSON.parse(apiResponse);
+            $("#txtCode").empty().html(JSON.stringify(faces[0], null, ' '));
+            $.each(faces, function (index, face) {
+                switch(action){
+                    case "faces": drawFace(face); break;
+                    case "fun": drawFun(face); break;
+                    case "landmarks": drawLandmarks(face); break;
+                }
+            });
+        }
+        /*toma el contenido del canvas, y lo envía en forma de imagen al server*/
+        function sendImageToServer(action) {
+            var dataURL = canvas.toDataURL("image/png");
+            var encodedImage = dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
+            $.ajax({
+                url: '/detectfaces',
+                data: { image: encodedImage },
+                type: 'POST',
+                cache: false,
+                success: function (data) {
+                    draw(data, action);
+                },
+                error: function (err) {
+                    console.log(err);//JSON.parse(err.responseText).message);
+                }
+            });
+        }
+        $("button").click(function (e) { sendImageToServer($(this).attr("action")); });
+            
+        var handleFileSelect = function (evt) {
+            //obtenemos la lista de archivos cargados
+            var files = evt.target.files;
+            //validamos que el usuario haya seleccionado almenos uno
+            if (files && files.length > 0) {
+                //Accedemos al archivo cargado
+                var blob = files[0];
+                //Validamos de que sea una imagen
+                if (blob.type.includes("image")) {
+                    /*Obtenemos su extension*/
+                    var ext = blob.type.split('/')[1];
+                    //Leemos el contenido de la imagen
+                    var reader = new FileReader();
+                    reader.readAsBinaryString(blob);
+                    reader.onload = function (ev) {
+                        var binaryString = ev.target.result;
+                        var base64String = btoa(binaryString);
+                        //document.getElementById("base64textarea").value = btoa(binaryString);
+                        //visualizamos la imagen
+                        var image = new Image();
+                        image.onload = function () {
+                            //obtenemos las dimensiones de la imagen
+                            var w = this.width;
+                            var h = this.height;
+                            var aspecRatio = preferedSize.w / w;
+                            canvas.width  = w * aspecRatio;
+                            canvas.height = h * aspecRatio;
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(this, 0, 0, w * aspecRatio, h * aspecRatio);
+                        };
+                        image.src = "data:"+blob.type+";base64,"+base64String;
+                    };
+                    
+                }
+            }
+        };
+        //chequeamos que el browser se compatible con el API de lectura de archivos
+        if (window.File && window.FileReader && window.FileList && window.Blob) {
+            document.getElementById('file').addEventListener('change', handleFileSelect, false);
+        } else {
+            alert('The File APIs are not fully supported in this browser.');
+        }
+    </script>
+</body>
+</html>

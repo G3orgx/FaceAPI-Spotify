@@ -1,0 +1,20 @@
+{
+  "name": "facerecognition",
+  "version": "1.0.0",
+  "description": "Deteccion de partes del rostro",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jorge Galvan",
+  "license": "ISC",
+  "dependencies": {
+    "hapi": "^16.1.1",
+    "open": "0.0.5",
+    "path": "^0.12.7",
+    "rapidapi-connect": "0.0.4",
+    "request": "^2.81.0",
+    "stream": "0.0.2",
+    "util": "^0.10.3"
+  }
+}
